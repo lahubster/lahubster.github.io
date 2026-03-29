@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>me as repository</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:  #0d1117;
+  --brd: #30363d;
+  --txt: #e6edf3;
+  --dim: #7d8590;
+  --sha: #58a6ff;
+  --c0: #58a6ff;  /* main           — blue        */
+  --c1: #3fb950;  /* film studies   — green       */
+  --c2: #ff7b7b;  /* international  — salmon      */
+  --c3: #e3b341;  /* communications — amber       */
+  --c4: #f0a030;  /* culture arts   — orange      */
+  --c5: #c792ea;  /* creative writ  — purple      */
+  --c6: #00d2d3;  /* code           — cyan        */
+  --c7: #ff6b9d;  /* creative tech  — hot pink    */
+}
+html { background: var(--bg); color: var(--txt); font-size: 13px; }
+body { font-family: 'Consolas','Courier New',monospace; max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+.prompt { color: var(--dim); font-size: 11px; margin-bottom: 10px; }
+h1 { font-size: 2rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
+.tagline { font-size: 11.5px; color: var(--dim); font-style: italic; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--brd); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-bottom: 32px; }
+.li { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--dim); }
+.ld { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+/* layout handled by JS wrapper */
+.sha-cell { padding: 0 8px 0 6px; color: var(--sha); font-size: 10.5px; white-space: nowrap; }
+.msg-cell { display: flex; flex-direction: column; justify-content: center; }
+.msg  { font-size: 12px; color: var(--txt); line-height: 1; }
+.sub  { font-size: 10px; color: var(--dim); font-style: italic; line-height: 1; margin-top: 3px; }
+footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid var(--brd); font-size: 10px; color: var(--dim); }
+</style>
+</head>
+<body>
+<p class="prompt">$ git log --graph --oneline --all --decorate</p>
+<h1>me as repository</h1>
+<p class="tagline">poet &nbsp;·&nbsp; novelist &nbsp;·&nbsp; coder &nbsp;·&nbsp; film scholar</p>
+<div class="legend" id="legend"></div>
+<div id="app"></div>
+<script>
+// ─── BRANCH REGISTRY ──────────────────────────────────────────────
+// col = permanent column index, never reused after merge
+const B = {
+  main:    { col:0, color:'var(--c0)', label:'main'                     },
+  film:    { col:1, color:'var(--c1)', label:'film studies'             },
+  intl:    { col:2, color:'var(--c2)', label:'international experience' },
+  comms:   { col:3, color:'var(--c3)', label:'communications'           },
+  culture: { col:4, color:'var(--c4)', label:'culture arts education'   },
+  writing: { col:5, color:'var(--c5)', label:'creative writing'         },
+  code:    { col:6, color:'var(--c6)', label:'code'                     },
+  ctech:   { col:7, color:'var(--c7)', label:'creative tech'            },
+};
+const NCOLS = 8;
+const COL_W = 18;   // px per column
+const DOT_R = 4;
+const LW    = 2;
+const LABEL_PAD = 10; // px between last column and label text
+
+function colX(b) { return B[b].col * COL_W + COL_W/2; }
+function bCol(b) { return B[b] ? B[b].color : 'var(--dim)'; }
+
+// ─── COMMITS ──────────────────────────────────────────────────────
+// opens  : key of branch forking out (diagonal to bottom)
+// merges : key of branch coming in   (diagonal from top)
+// label  : show branch label pill inline in the SVG on this row
+// pr     : open pull request diamond
+const COMMITS = [
+
+  // ── main ──────────────────────────────────────────────────────
+  { b:'main', sha:'a1b2c3',
+    msg:'init: me',
+    sub:'entering adulthood' },
+
+  { b:'main', sha:'d4e5f6',
+    msg:'branch film studies',
+    opens:'film', label:'film' },
+
+  // ── film studies ──────────────────────────────────────────────
+  { b:'film', sha:'7a8b9c',
+    msg:'feat: BA Film Studies',
+    sub:'Universiteit van Amsterdam, 1999–2002' },
+
+  { b:'main', sha:'ex0001',
+    msg:'branch international experience',
+    opens:'intl', label:'intl' },
+
+  { b:'film', sha:'0d1e2f',
+    msg:'feat: exchange — Universidad de Barcelona',
+    sub:'Faculty of History & Geography, 2003–2004' },
+
+  { b:'intl', sha:'ix0001',
+    msg:'feat: exchange — Universidad de Barcelona',
+    sub:'Faculty of History & Geography, 2003–2004' },
+
+  { b:'film', sha:'3a4b5c',
+    msg:'feat: MA Film Studies',
+    sub:'Universiteit van Amsterdam, 2004–2005' },
+
+  { b:'film', sha:'6d7e8f',
+    msg:'skill: visual analysis, narrative theory',
+    sub:'montage, critical reading, essay writing' },
+
+  { b:'film', sha:'9a0b1c',
+    msg:'skill: cross-cultural fluency',
+    sub:'Spanish language & culture' },
+
+  { b:'main', sha:'2d3e4f',
+    msg:'merge film studies',
+    sub:'academic rigour + international perspective embedded',
+    merges:'film' },
+
+  // ── international experience ───────────────────────────────────
+  { b:'intl', sha:'c3d4e5',
+    msg:'feat: Barcelona — lived & worked',
+    sub:'2003–2010' },
+
+  { b:'intl', sha:'c4d5e6',
+    msg:'feat: Citibank Barcelona',
+    sub:'banking, multilingual environment, 2005–2006' },
+
+  { b:'main', sha:'cm0001',
+    msg:'branch communications',
+    opens:'comms', label:'comms' },
+
+  { b:'intl', sha:'e6f7a8',
+    msg:'feat: Novartis — E-marketing & Communications',
+    sub:'digital campaigns, international market, 2007–2009' },
+
+  { b:'comms', sha:'cm0002',
+    msg:'feat: Novartis — campaign strategy',
+    sub:'communications, digital, 2007–2009' },
+
+  { b:'intl', sha:'f7a8b9',
+    msg:'feat: Logismarket — Translation & Content',
+    sub:'B2B marketplace, EN/ES/NL content, 2009–2010' },
+
+  { b:'intl', sha:'a8b9c0',
+    msg:'skill: multilingual content at scale',
+    sub:'SEO, analytics, EN/NL/ES copywriting' },
+
+  { b:'intl', sha:'c0d1e2',
+    msg:'skill: graphic design foundations',
+    sub:'visual communication, Adobe Creative Suite' },
+
+  { b:'main', sha:'d1e2f3',
+    msg:'merge international experience',
+    sub:'international scope + multilingual capacity embedded',
+    merges:'intl' },
+
+  // ── communications (parallel) ──────────────────────────────────
+  { b:'comms', sha:'n1o2p3',
+    msg:'feat: Novartis — campaign strategy',
+    sub:'digital, brand communication, 2007–2009' },
+
+  { b:'comms', sha:'n2o3p4',
+    msg:'feat: Logismarket — editorial direction',
+    sub:'EN/ES/NL content management, 2009–2010' },
+
+  { b:'comms', sha:'n3o4p5',
+    msg:'skill: editorial voice at institutional scale',
+    sub:'press releases, programme texts, brand communication' },
+
+  // ── culture arts education ─────────────────────────────────────
+  { b:'main', sha:'e2f3a4',
+    msg:'branch culture arts education',
+    opens:'culture', label:'culture' },
+
+  { b:'main', sha:'wr0001',
+    msg:'branch creative writing',
+    opens:'writing', label:'writing' },
+
+  { b:'culture', sha:'f3a4b5',
+    msg:'feat: Binger Filmlab',
+    sub:'programme coordination, communications, 2010–2014' },
+
+  { b:'culture', sha:'b5c6d7',
+    msg:"feat: script editing workshop",
+    sub:"Writers' Gym, creative editing — Binger Filmlab" },
+
+  { b:'culture', sha:'e8f9a0',
+    msg:'feat: Van Gogh Museum',
+    sub:'marketing & communications, 2014–2016' },
+
+  { b:'culture', sha:'a0b1c2',
+    msg:'feat: Mondriaan Fonds',
+    sub:'PR & communications, arts funding, 2016–2017' },
+
+  { b:'culture', sha:'b1c2d3',
+    msg:'feat: PThU / VU',
+    sub:'communications specialist, 2017' },
+
+  { b:'culture', sha:'d3e4f5',
+    msg:'skill: project architecture',
+    sub:'coordinating complex programmes across stakeholders' },
+
+  { b:'culture', sha:'n4o5p6',
+    msg:'merge communications',
+    sub:'full communications toolkit embedded',
+    merges:'comms' },
+
+  { b:'main', sha:'f5a6b7',
+    msg:'merge culture arts education',
+    sub:'editorial authority + institutional experience embedded',
+    merges:'culture' },
+
+  // ── creative writing ────────────────────────────────────────────
+  { b:'writing', sha:'c6d7e8',
+    msg:'commit: first poetry publications',
+    sub:'Liegen op een Hoger Plan anthology, 2014' },
+
+  { b:'writing', sha:'f9a0b1',
+    msg:'commit: School of Creative Writing (Schrijversvakschool)',
+    sub:'creation of publishable prose project — prose, poetry, essay, 2016–2019' },
+
+  { b:'writing', sha:'e4f5a6',
+    msg:'commit: poetry publication',
+    sub:'Souvenirs uit Pantelleria — Goudlicht en avondschijn, 2017' },
+
+  // ── code ───────────────────────────────────────────────────────
+  { b:'main', sha:'a6b7c8',
+    msg:'branch code',
+    opens:'code', label:'code' },
+
+  { b:'code', sha:'b7c8d9',
+    msg:'feat: Software Engineering',
+    sub:'Make IT Work — Hogeschool van Amsterdam, 2018' },
+
+  { b:'code', sha:'c8d9e0',
+    msg:'cert: Java OCA',
+    sub:'Oracle Certified Associate, 2018' },
+
+  { b:'code', sha:'d9e0f1',
+    msg:'cert: Java OCP',
+    sub:'Oracle Certified Professional, 2018' },
+
+  { b:'code', sha:'e0f1a2',
+    msg:'feat: Java Developer — DICTU / Rijksoverheid',
+    sub:'government IT, team context, 2018–2025' },
+
+  { b:'writing', sha:'b3c4d5',
+    msg:'commit: Perdu — Centre for Poetry',
+    sub:'creative writing, poetry as practice, 2020–2021' },
+
+  { b:'writing', sha:'d5e6f7',
+    msg:'commit: poetry publication',
+    sub:'Berichten van de Canarische Eilanden — virusverhalen.nl, 2020' },
+
+  { b:'code', sha:'a2b3c4',
+    msg:'skill: system architecture',
+    sub:'REST APIs, Spring Boot, agile in large teams' },
+
+  { b:'writing', sha:'e6f7a8',
+    msg:'commit: poetry publication',
+    sub:'Bezienswaardigheden — De Optimist, 2022' },
+
+  { b:'writing', sha:'f1a2b3',
+    msg:'commit: School of Creative Writing (Schrijversvakschool)',
+    sub:'creation of publishable prose project — returning to prose & poetry, 2024' },
+
+  { b:'writing', sha:'f7a8b9',
+    msg:'commit: Vers van het Mes',
+    sub:'selected — flagship Low Countries poetry programme, 2024' },
+
+  { b:'main', sha:'b9c0d1',
+    msg:'merge code',
+    sub:'technical fluency + creative coding embedded',
+    merges:'code' },
+
+  // ── creative tech ──────────────────────────────────────────────
+  { b:'main', sha:'c0d1e2',
+    msg:'branch creative tech',
+    opens:'ctech', label:'ctech' },
+
+  { b:'ctech', sha:'d1e2f3',
+    msg:'feat: Gerrit Rietveld Academie',
+    sub:'orientation course, fine art & design, 2023–2024' },
+
+  { b:'writing', sha:'e2f3a4',
+    msg:'commit: debut novel — Van Oorschot',
+    sub:'contract signed — alienation, reality, fiction' },
+
+  { b:'ctech', sha:'f3a4b5',
+    msg:'feat: XR & world-building research',
+    sub:'extended reality, spatial narrative' },
+
+  { b:'writing', sha:'a4b5c6',
+    msg:'commit: novel in progress',
+    sub:'writing at the border of real and constructed' },
+
+  { b:'ctech', sha:'b5c6d7',
+    msg:'feat: local LLM experiments',
+    sub:'Ollama + custom corpus — language as system' },
+
+  { b:'main', sha:'e8f9a0',
+    msg:'merge creative writing',
+    sub:'literary voice fully integrated',
+    merges:'writing' },
+
+  { b:'ctech', sha:'f9a0b1',
+    msg:'feat: XR experiments',
+    sub:'Afterimage — spatial narrative, generative environments' },
+
+  { b:'ctech', sha:'a0b1c2',
+    msg:'skill: concept-to-code pipeline',
+    sub:'from literary idea to running system' },
+
+  { b:'ctech', sha:'PR#001',
+    msg:'open: Afterimage',
+    sub:'V2_ Reciprocal Trap — pull request pending review',
+    pr: true },
+];
+
+// ─── ACTIVE SET TRACKER ───────────────────────────────────────────
+// Returns array of Sets: active[i] = branches with live vertical at row i
+// A branch enters when it first appears in commits (via opens or as first b:X)
+// A branch exits AFTER the row where it is merged
+function computeActive(commits) {
+  const result = [];
+  const live = new Set(['main']);
+  for (let i = 0; i < commits.length; i++) {
+    const c = commits[i];
+    // a branch with opens: starts being live from BOTTOM of this row
+    // so add it BEFORE recording, so the diagonal shows continuation
+    if (c.opens) live.add(c.opens);
+    result.push(new Set(live));
+    // after recording, remove merged branch
+    if (c.merges) live.delete(c.merges);
+  }
+  return result;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────
+const active = computeActive(COMMITS);
+
+// Fixed row heights — no DOM measurement needed
+const RH_SIMPLE = 30;   // rows without sub
+const RH_SUB    = 46;   // rows with sub
+function rowH(c) { return c.sub ? RH_SUB : RH_SIMPLE; }
+
+// Cumulative Y offsets
+const rowY = [];
+let cumY = 0;
+COMMITS.forEach(c => { rowY.push(cumY); cumY += rowH(c); });
+const totalH = cumY;
+
+const svgW = NCOLS * COL_W + 6;
+
+// Legend
+const legendEl = document.getElementById('legend');
+Object.values(B).forEach(br => {
+  const item = document.createElement('div');
+  item.className = 'li';
+  item.innerHTML = `<div class="ld" style="background:${br.color}"></div>${br.label}`;
+  legendEl.appendChild(item);
+});
+
+// ── Build the single SVG ──────────────────────────────────────────
+const NS = 'http://www.w3.org/2000/svg';
+const bigSvg = document.createElementNS(NS, 'svg');
+bigSvg.setAttribute('width',  svgW);
+bigSvg.setAttribute('height', totalH);
+bigSvg.style.cssText = 'display:block; flex-shrink:0;';
+
+COMMITS.forEach((c, idx) => {
+  const live  = active[idx];
+  const y0    = rowY[idx];
+  const H     = rowH(c);
+  const midY  = y0 + H / 2;
+  const topY  = y0;
+  const botY  = y0 + H;
+  const myX   = colX(c.b);
+
+  const skipFull = new Set();
+
+  if (c.opens) {
+    // new branch column: diagonal topY→botY on new col, no separate vertical needed
+    skipFull.add(B[c.opens].col);
+  }
+  if (c.merges) {
+    // merged branch column: diagonal topY→midY, no vertical needed
+    skipFull.add(B[c.merges].col);
+  }
+
+  // All live branches get a full vertical topY→botY, except those covered by a diagonal
+  live.forEach(bk => {
+    const bcol = B[bk].col;
+    if (skipFull.has(bcol)) return;
+    const x  = colX(bk);
+    const ln = document.createElementNS(NS, 'line');
+    ln.setAttribute('x1', x);  ln.setAttribute('x2', x);
+    ln.setAttribute('y1', topY - 1);
+    ln.setAttribute('y2', botY + 1);
+    ln.setAttribute('stroke', bCol(bk));
+    ln.setAttribute('stroke-width', LW);
+    ln.setAttribute('shape-rendering', 'crispEdges');
+    bigSvg.appendChild(ln);
+  });
+
+  // Branch-out diagonal: from myX,midY to newCol,botY
+  if (c.opens) {
+    const tx = colX(c.opens);
+    const ln = document.createElementNS(NS, 'line');
+    ln.setAttribute('x1', myX); ln.setAttribute('y1', midY);
+    ln.setAttribute('x2', tx);  ln.setAttribute('y2', botY + 1);
+    ln.setAttribute('stroke', bCol(c.opens));
+    ln.setAttribute('stroke-width', LW);
+    bigSvg.appendChild(ln);
+  }
+
+  // Merge-in diagonal: from mergedCol,topY to myX,midY
+  if (c.merges) {
+    const fx = colX(c.merges);
+    const ln = document.createElementNS(NS, 'line');
+    ln.setAttribute('x1', fx);   ln.setAttribute('y1', topY - 1);
+    ln.setAttribute('x2', myX);  ln.setAttribute('y2', midY);
+    ln.setAttribute('stroke', bCol(c.merges));
+    ln.setAttribute('stroke-width', LW);
+    bigSvg.appendChild(ln);
+  }
+
+  // Commit dot / diamond
+  if (c.pr) {
+    const s    = DOT_R + 2;
+    const poly = document.createElementNS(NS, 'polygon');
+    poly.setAttribute('points',
+      `${myX},${midY-s} ${myX+s},${midY} ${myX},${midY+s} ${myX-s},${midY}`);
+    poly.setAttribute('fill',   'none');
+    poly.setAttribute('stroke', bCol(c.b));
+    poly.setAttribute('stroke-width', '1.8');
+    bigSvg.appendChild(poly);
+  } else {
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', myX);
+    dot.setAttribute('cy', midY);
+    dot.setAttribute('r',  DOT_R);
+    dot.setAttribute('fill', bCol(c.b));
+    bigSvg.appendChild(dot);
+  }
+});
+
+// ── Build layout: SVG absolutely positioned, rows have left padding ─
+const app = document.getElementById('app');
+const wrapper = document.createElement('div');
+wrapper.style.cssText = `position:relative; padding-left:${svgW}px;`;
+bigSvg.style.cssText = `position:absolute; top:0; left:0; display:block; overflow:visible;`;
+wrapper.appendChild(bigSvg);
+
+COMMITS.forEach((c, idx) => {
+  const row = document.createElement('div');
+  const h = rowH(c);
+  row.style.cssText = `display:grid; grid-template-columns:64px 1fr; height:${h}px; align-items:center;`;
+  if (c.pr) row.style.opacity = '0.75';
+  row.addEventListener('mouseenter', () => row.style.background = 'rgba(255,255,255,0.025)');
+  row.addEventListener('mouseleave', () => row.style.background = '');
+
+  const sc = document.createElement('div');
+  sc.className = 'sha-cell';
+  sc.textContent = c.sha;
+  row.appendChild(sc);
+
+  const mc = document.createElement('div');
+  mc.className = 'msg-cell';
+  const md = document.createElement('div');
+  md.className = 'msg';
+  if      (c.merges)  md.style.color = bCol(c.merges);
+  else if (c.opens)   md.style.color = bCol(c.opens);
+  else if (c.pr)      md.style.color = bCol(c.b);
+  md.textContent = c.msg;
+  mc.appendChild(md);
+
+  if (c.sub) {
+    const sd = document.createElement('div');
+    sd.className = 'sub';
+    sd.textContent = c.sub;
+    mc.appendChild(sd);
+  }
+  row.appendChild(mc);
+  wrapper.appendChild(row);
+});
+
+app.appendChild(wrapper);
+</script>
+
+<footer>[email] &nbsp;·&nbsp; [website] &nbsp;·&nbsp; [stad]</footer>
+</body>
+</html>
